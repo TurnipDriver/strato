@@ -1,8 +1,8 @@
-# A workflow to verify the build on ever# test buildy push to the master branch
+# A workflow to verify the build on every push to the master branch
 name: Build
 
 on:
-  push: 
+  push:
     branches: [ master ]
 
 jobs:
@@ -14,25 +14,27 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Restore CCache
-        uses: hendrikmuhs/ccache-action@v1.2
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
         with:
-          max-size: 3Gi
+          arguments: help
+          gradle-version: wrapper
+          cache-read-only: false
 
-      - name: Restore Gradle Cache
-        uses: actions/cache@v4
+      - name: Cache Gradle
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle') }}-${{ hashFiles('app/**/*.xml') }}-${{ hashFiles('app/**.kt', 'app/**.java') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle') }}-${{ hashFiles('**/settings.gradle') }}
           restore-keys: |
-            ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle') }}-${{ hashFiles('app/**/*.xml') }}-
-            ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle') }}-
+            ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle') }}-${{ hashFiles('**/settings.gradle') }}
+            ${{ runner.os }}-gradle-${{ hashFiles('**/build.gradle') }}
             ${{ runner.os }}-gradle-
 
       - name: Install Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin' # Temurin should come pre-installed on GitHub-hosted runners
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Install Ninja Build
@@ -44,5 +46,11 @@ jobs:
         env:
           CMAKE_C_COMPILER_LAUNCHER: "ccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
-          CCACHE_COMPILERCHECK: "string:${{ env.NDK_VERSION }}" # Use NDK version instead of compiler timestamp
-        run: ./gradlew --no-daemon --stacktrace --build-cache --parallel --configure-on-demand assembleMainlineRelease
+          CCACHE_COMPILERCHECK: "string:${{ env.NDK_VERSION }}"
+        run: ./gradlew --no-daemon --stacktrace --build-cache --parallel --configure-on-demand assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Strato-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
